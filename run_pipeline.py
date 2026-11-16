@@ -5,7 +5,8 @@ Run the whole RAVDESS evaluation pipeline on Windows, macOS or Linux:
   1. check that the data, the EfficientFace weights and the checkpoint are in place
   2. create the .venv virtual environment and install requirements.txt
   3. preprocessing: extract_faces.py -> extract_audios.py -> create_annotations.py
-  4. python main.py --no_train --no_val --result_path <CHECKPOINT_FOLDER>
+  4. --train:    python main.py --result_path <CHECKPOINT_FOLDER>   (train, pick best epoch on val, test)
+     otherwise:  python main.py --no_train --no_val --result_path <CHECKPOINT_FOLDER>   (test an existing model)
 
 Expected layout (RAVDESS sits next to the repository folder):
 
@@ -20,8 +21,12 @@ Expected layout (RAVDESS sits next to the repository folder):
 
 Usage (run from anywhere with Python 3.9-3.12):
 
-  macOS / Linux:  python3 run_pipeline.py --checkpoint_dir PATH_TO_CHECKPOINT_FOLDER
-  Windows:        py -3.12 run_pipeline.py --checkpoint_dir PATH_TO_CHECKPOINT_FOLDER
+  Train a fresh model (results and checkpoints go to ./results unless --checkpoint_dir is given):
+    macOS / Linux:  python3 run_pipeline.py --train
+    Windows:        py -3.12 run_pipeline.py --train
+
+  Test an existing model:
+    python3 run_pipeline.py --checkpoint_dir PATH_TO_CHECKPOINT_FOLDER
 
 Add --check_only to run only the checks.
 """
@@ -135,7 +140,7 @@ def check_setup(args):
     print('\n  Actor folders (videos = 01-/02-*.mp4, audio = 03-*.wav):')
     for num in range(1, 25):
         role = 'test' if num in TEST_ACTORS else 'val' if num in VAL_ACTORS else 'train'
-        needed = num in TEST_ACTORS  # --no_train --no_val only uses the test actors
+        needed = args.train or num in TEST_ACTORS  # --no_train --no_val only uses the test actors
         if num not in actors:
             msg = 'actor %02d (%s): folder missing' % (num, role)
             errors.append(msg) if needed else warn(msg + ' (only needed for training/validation)')
@@ -163,7 +168,11 @@ def check_setup(args):
     # Checkpoint folder
     print()
     ckpt_dir = args.checkpoint_dir
-    if not os.path.isdir(ckpt_dir):
+    if args.train:
+        ok('training: checkpoints and results will be saved to %s' % ckpt_dir)
+        if os.path.isfile(os.path.join(ckpt_dir, CHECKPOINT_NAME)):
+            warn('%s already exists there and will be overwritten by the new training run' % CHECKPOINT_NAME)
+    elif not os.path.isdir(ckpt_dir):
         errors.append('checkpoint folder not found: %s' % ckpt_dir)
     elif os.path.isfile(os.path.join(ckpt_dir, CHECKPOINT_NAME)):
         ok('checkpoint: %s' % os.path.join(ckpt_dir, CHECKPOINT_NAME))
@@ -180,8 +189,13 @@ def check_setup(args):
 # ----------------------------------------------------------------------------- main
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--checkpoint_dir', required=True,
-                        help='folder containing %s (passed to main.py as --result_path)' % CHECKPOINT_NAME)
+    parser.add_argument('--train', action='store_true',
+                        help='train a fresh model (needs all 24 actors) instead of testing an existing checkpoint')
+    parser.add_argument('--checkpoint_dir', default=None,
+                        help='passed to main.py as --result_path. Testing: folder containing %s (required). '
+                             'Training: where results are saved (default: results)' % CHECKPOINT_NAME)
+    parser.add_argument('--n_epochs', type=int, default=None, help='training epochs (main.py default: 100)')
+    parser.add_argument('--batch_size', type=int, default=None, help='batch size (main.py default: 8)')
     parser.add_argument('--ravdess_dir', default=os.path.join(os.path.dirname(REPO), 'RAVDESS'),
                         help='RAVDESS data folder (default: RAVDESS next to the repository)')
     parser.add_argument('--pretrain_path', default=None,
@@ -194,6 +208,10 @@ def main():
     parser.add_argument('--skip_install', action='store_true', help='do not run pip install')
     parser.add_argument('--skip_preprocessing', action='store_true', help='reuse existing preprocessed files')
     args = parser.parse_args()
+    if args.checkpoint_dir is None:
+        if not args.train:
+            parser.error('--checkpoint_dir is required when testing; use --train to train a fresh model')
+        args.checkpoint_dir = os.path.join(REPO, 'results')
     args.ravdess_dir = os.path.abspath(args.ravdess_dir)
     args.checkpoint_dir = os.path.abspath(args.checkpoint_dir)
     if args.pretrain_path:
@@ -251,17 +269,28 @@ def main():
     if counts['testing'] == 0:
         sys.exit('ERROR: annotations.txt has no testing samples; check that actors %s have videos and audio.'
                  % sorted(TEST_ACTORS))
+    if args.train and (counts['training'] == 0 or counts['validation'] == 0):
+        sys.exit('ERROR: training needs training and validation samples; check that all 24 actors have videos and audio.')
     if missing:
         sys.exit('ERROR: %d preprocessed test files are missing, e.g. %s' % (len(missing), missing[0]))
 
-    # Step 4: evaluation
-    banner('STEP 4/4  python main.py --no_train --no_val')
-    run([VENV_PY, 'main.py', '--no_train', '--no_val',
-         '--result_path', args.checkpoint_dir,
-         '--annotation_path', annotation_path,
-         '--pretrain_path', pretrain,
-         '--fusion', args.fusion,
-         '--n_threads', str(args.n_threads)])
+    # Step 4: training + test, or test only
+    cmd = [VENV_PY, 'main.py']
+    if args.train:
+        banner('STEP 4/4  python main.py (train, validate, test)')
+    else:
+        banner('STEP 4/4  python main.py --no_train --no_val')
+        cmd += ['--no_train', '--no_val']
+    cmd += ['--result_path', args.checkpoint_dir,
+            '--annotation_path', annotation_path,
+            '--pretrain_path', pretrain,
+            '--fusion', args.fusion,
+            '--n_threads', str(args.n_threads)]
+    if args.n_epochs is not None:
+        cmd += ['--n_epochs', str(args.n_epochs)]
+    if args.batch_size is not None:
+        cmd += ['--batch_size', str(args.batch_size)]
+    run(cmd)
 
     result_file = os.path.join(args.checkpoint_dir, 'test_set_bestval.txt')
     banner('DONE')
