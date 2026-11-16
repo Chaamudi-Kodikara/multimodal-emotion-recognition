@@ -9,7 +9,8 @@ import numpy as np
 ##this file preprocess audio files to ensure they are of the same length. if length is less than 3.6 seconds, it is padded with zeros in the end. otherwise, it is equally cropped from 
 ##both sides
 
-root = '/Users/milindi/Documents/Pringle/RAVDESS/'
+# Data folder: RAVDESS_ROOT env var, otherwise a RAVDESS folder next to the repository.
+root = os.path.abspath(os.environ.get('RAVDESS_ROOT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'RAVDESS')))
 target_time = 3.6 #sec
 actors = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)))  # skip .DS_Store etc.
 for actor in actors:
@@ -17,6 +18,8 @@ for actor in actors:
         
         if not audiofile.endswith('.wav') or 'croppad' in audiofile:
             continue
+        if os.path.exists(os.path.join(root, actor, audiofile[:-4]+'_croppad.wav')):
+            continue  # already processed
 
         audios = librosa.load(os.path.join(root, actor, audiofile), sr=22050)
 	

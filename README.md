@@ -58,6 +58,14 @@ python create_annotations.py
 
 As a result you will have annotations.txt file that you can use further for training.
 
+#### One-command evaluation (Windows / macOS / Linux)
+`run_pipeline.py` checks the setup, creates `.venv`, installs `requirements.txt`, runs the three preprocessing scripts and then `main.py --no_train --no_val`. Put the RAVDESS data and `EfficientFace_Trained_on_AffectNet7.pth.tar` in a `RAVDESS` folder next to this repository, then run with Python 3.9-3.12:
+```sh
+python3 run_pipeline.py --checkpoint_dir PATH_TO_CHECKPOINT_FOLDER     # macOS / Linux
+py -3.12 run_pipeline.py --checkpoint_dir PATH_TO_CHECKPOINT_FOLDER     # Windows
+```
+The checkpoint folder must contain `RAVDESS_multimodalcnn_15_best0.pth`. Add `--check_only` to run only the checks, or `--fusion it|lt` if the checkpoint uses a different fusion type.
+
 #### Training
 For visual module weight initialization, download the pre-trained EfficientFace from [here](https://github.com/zengqunzhao/EfficientFace) under 'Pre-trained models'. In our experiments, we use the model pre-trained on AffectNet7, i.e., EfficientFace_Trained_on_AffectNet7.pth.tar. If you want to use a different one, download it and later specify the path in \-\-pretrain_path argument to main.py. Otherwise, you can ignore this step and train from scratch (although you will likely obtain lower performance).
 

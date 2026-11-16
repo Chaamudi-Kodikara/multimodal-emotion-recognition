@@ -18,7 +18,8 @@ save_length = 3.6 #seconds
 save_avi = True
 
 failed_videos = []
-root = '/Users/milindi/Documents/Pringle/RAVDESS/'
+# Data folder: RAVDESS_ROOT env var, otherwise a RAVDESS folder next to the repository.
+root = os.path.abspath(os.environ.get('RAVDESS_ROOT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'RAVDESS')))
 
 select_distributed = lambda m, n: [i*n//m + n//(2*m) for i in range(m)]
 n_processed = 0
@@ -27,6 +28,8 @@ for sess in tqdm(actors):
     for filename in os.listdir(os.path.join(root, sess)):
            
         if filename.endswith('.mp4'):
+            if os.path.exists(os.path.join(root, sess, filename[:-4]+'_facecroppad.npy')):
+                continue  # already processed
                         
             cap = cv2.VideoCapture(os.path.join(root, sess, filename))  
             #calculate length in frames
