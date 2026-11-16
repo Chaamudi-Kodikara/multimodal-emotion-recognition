@@ -109,7 +109,7 @@ if __name__ == '__main__':
         best_loss = 1e10
         if opt.resume_path:
             print('loading checkpoint {}'.format(opt.resume_path))
-            checkpoint = torch.load(opt.resume_path)
+            checkpoint = torch.load(opt.resume_path, weights_only=False)
             assert opt.arch == checkpoint['arch']
             best_prec1 = checkpoint['best_prec1']
             opt.begin_epoch = checkpoint['epoch']
@@ -158,7 +158,7 @@ if __name__ == '__main__':
             test_data = get_test_set(opt, spatial_transform=video_transform) 
         
             #load best model
-            best_state = torch.load('%s/%s_best' % (opt.result_path, opt.store_name)+str(fold)+'.pth')
+            best_state = torch.load('%s/%s_best' % (opt.result_path, opt.store_name)+str(fold)+'.pth', weights_only=False)
             model.load_state_dict(best_state['state_dict'])
         
             test_loader = torch.utils.data.DataLoader(

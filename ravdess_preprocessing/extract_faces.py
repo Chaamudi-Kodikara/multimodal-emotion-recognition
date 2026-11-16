@@ -18,11 +18,12 @@ save_length = 3.6 #seconds
 save_avi = True
 
 failed_videos = []
-root = '/lustre/scratch/chumache/RAVDESS_or/'
+root = '/Users/milindi/Documents/Pringle/RAVDESS/'
 
 select_distributed = lambda m, n: [i*n//m + n//(2*m) for i in range(m)]
 n_processed = 0
-for sess in tqdm(sorted(os.listdir(root))):   
+actors = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)))  # skip .DS_Store etc.
+for sess in tqdm(actors):   
     for filename in os.listdir(os.path.join(root, sess)):
            
         if filename.endswith('.mp4'):

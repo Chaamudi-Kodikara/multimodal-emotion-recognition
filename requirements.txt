@@ -1,5 +1,10 @@
-torch==1.9.0
-torchvision==0.10.0
-librosa==0.8.1
-opencv-python
+# facenet-pytorch 2.6.0 (used by ravdess_preprocessing/extract_faces.py) requires
+# torch 2.2.x and numpy<2, so the rest of the stack is pinned to match.
+torch>=2.2,<2.3
+torchvision>=0.17,<0.18
+numpy>=1.24,<2
+scipy<1.14
+librosa>=0.10,<0.11
+opencv-python<4.11
+facenet-pytorch==2.6.0
 tqdm
